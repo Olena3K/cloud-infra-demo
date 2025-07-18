@@ -18,7 +18,7 @@ services:
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpass
     ports:
-      - "55432:5432" # змінили порт, щоб уникнути конфліктів
+      - "5432:5432" # змінили порт, щоб уникнути конфліктів
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
