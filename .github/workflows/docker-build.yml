@@ -1,0 +1,32 @@
+name: Build and Test Docker Image
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        run: docker build -t cloud-infra-demo .
+
+      - name: Run Docker Compose for Test
+        run: docker compose up -d --build
+
+      - name: Check if App is Healthy
+        run: |
+          sleep 5
+          curl --fail http://localhost:8080/ || exit 1
+
+      - name: Stop Docker Compose
+        run: docker compose down
