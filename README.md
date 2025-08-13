@@ -12,7 +12,7 @@ The Flask app serves a simple page and a /health endpoint. The app is containeri
 cloud-infra-demo/
 ├── app/
 │ ├──templates/
-│    |── index.html
+│ |── index.html
 │ ├── main.py
 │ ├── requirements.txt
 ├── Dockerfile
@@ -23,7 +23,7 @@ cloud-infra-demo/
 │ ├── outputs.tf
 ├── .github/
 │ ├── workflows/
-│    |── docker-deploy.yml
+│ |── docker-deploy.yml
 ├── README.md
 
 ---
@@ -43,6 +43,7 @@ cloud-infra-demo/
 - CloudWatch Logs
 
 ---
+
 Setup and Deployment
 Prerequisites:
 Docker
@@ -54,32 +55,32 @@ AWS IAM permissions for ECS, ECR, and IAM
 ## ⚙️
 
 Local Setup
+
 1. Clone the repository:git clone https://github.com/Olena3K/cloud-infra-demo.git
-       cd cloud-infra-demo
+   cd cloud-infra-demo
 2. Install dependencies:
-       pip install -r app/requirements.txt
+   pip install -r app/requirements.txt
 3. Run the Flask app:
-       python app/main.py
+   python app/main.py
 4. Access your localhost:80 and /health.
 
-
-
 Docker Setup
-1. Build the Docker image:
-       docker build -t cloud-infra-demo .
-2. Run the container:
-       docker run -p 80:80 -d cloud-infra-demo
-3. Verify healthcheck:
-       docker ps
 
+1. Build the Docker image:
+   docker build -t cloud-infra-demo .
+2. Run the container:
+   docker run -p 80:80 -d cloud-infra-demo
+3. Verify healthcheck:
+   docker ps
 
 Cloud Deployment
+
 1. Configure AWS CLI:
-       aws configure 
-       (Set region to eu-north-1.)
+   aws configure
+   (Set region to eu-north-1.)
 2. Initialize Terraform:
-       cd terraform
-       terraform init
+   cd terraform
+   terraform init
 3. Deploy infrastructure:
-       terraform apply
-4. Access the app at the ECS service URL.
+   terraform apply
+4. Access the app at the ECS service URL
