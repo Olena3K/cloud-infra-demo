@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - ecs-remake
 
 env:
   AWS_REGION: eu-north-1
