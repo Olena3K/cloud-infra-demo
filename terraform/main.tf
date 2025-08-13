@@ -3,18 +3,18 @@ resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 
   tags = {
-    Name = "main-vpc"
+    Name = "ecs-vpc"
   }
 }
 
-resource "aws_subnet" "main" {
+resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "eu-north-1a"
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "main-subnet"
+    Name = "ecs-public-subnet-a"
   }
 }
 
@@ -22,18 +22,32 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "main-igw"
+    Name = "ecs-igw"
   }
 }
 
-resource "aws_security_group" "ecs_instance_sg" {
-  name   = "ecs-instance-sg"
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+}
+
+resource "aws_route_table_association" "public_a" {
+  subnet_id      = aws_subnet.public_a.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_security_group" "ecs_sg" {
+  name   = "ecs-fargate-sg"
   vpc_id = aws_vpc.main.id
 
   ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -45,140 +59,55 @@ resource "aws_security_group" "ecs_instance_sg" {
   }
 
   tags = {
-    Name = "ecs-instance-sg"
+    Name = "ecs-fargate-sg"
   }
 }
 
 # ------------------ ECS Cluster ------------------
 resource "aws_ecs_cluster" "main" {
-  name = "cloud-infra-ec2-cluster"
+  name = "cloud-infra-ecs-cluster"
 }
 
-# ------------------ IAM ------------------
-resource "aws_iam_role" "ecs_instance_role" {
-  name = "ecs-instance-role"
+# ------------------ IAM for ECS Task Execution ------------------
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "ecsTaskExecutionRole"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Action = "sts:AssumeRole",
-      Principal = { Service = "ec2.amazonaws.com" },
-      Effect   = "Allow",
+      Action    = "sts:AssumeRole",
+      Principal = { Service = "ecs-tasks.amazonaws.com" },
+      Effect    = "Allow",
     }]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_instance_role_attach" {
-  role       = aws_iam_role.ecs_instance_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
-}
-
-resource "aws_iam_instance_profile" "ecs_instance_profile" {
-  name = "ecs-instance-profile"
-  role = aws_iam_role.ecs_instance_role.name
-}
-
-# ------------------ Launch Template ------------------
-data "aws_ami" "ecs_ami" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["*amazon-ecs-optimized*"]
-  }
-}
-
-resource "aws_launch_template" "ecs" {
-  name_prefix   = "ecs-ec2-lt-"
-  image_id      = data.aws_ami.ecs_ami.id
-  instance_type = "t3.micro"
-
-  iam_instance_profile {
-    name = aws_iam_instance_profile.ecs_instance_profile.name
-  }
-
-  network_interfaces {
-    associate_public_ip_address = true
-    security_groups             = [aws_security_group.ecs_instance_sg.id]
-  }
-
-  user_data = base64encode(<<EOF
-#!/bin/bash
-echo ECS_CLUSTER=${aws_ecs_cluster.main.name} >> /etc/ecs/ecs.config
-EOF
-  )
-}
-
-# ------------------ Auto Scaling Group ------------------
-resource "aws_autoscaling_group" "ecs_asg" {
-  desired_capacity         = 1
-  max_size                 = 1
-  min_size                 = 1
-  vpc_zone_identifier      = [aws_subnet.main.id]
-  health_check_type        = "EC2"
-  health_check_grace_period = 300
-
-  launch_template {
-    id      = aws_launch_template.ecs.id
-    version = "Latest"
-  }
-
-  protect_from_scale_in = true
-
-  tag {
-    key                 = "Name"
-    value               = "ecs-ec2-instance"
-    propagate_at_launch = true
-  }
-}
-
-# ------------------ ECS Capacity Provider ------------------
-resource "aws_ecs_capacity_provider" "ec2_cp" {
-  name = "cloud-infra-ec2-cp"
-
-  auto_scaling_group_provider {
-    auto_scaling_group_arn          = aws_autoscaling_group.ecs_asg.arn
-    managed_termination_protection  = "ENABLED"
-
-    managed_scaling {
-      status                    = "ENABLED"
-      target_capacity           = 100
-      minimum_scaling_step_size = 1
-      maximum_scaling_step_size = 100
-      instance_warmup_period    = 300
-    }
-  }
-}
-
-resource "aws_ecs_cluster_capacity_providers" "main" {
-  cluster_name       = aws_ecs_cluster.main.name
-  capacity_providers = [aws_ecs_capacity_provider.ec2_cp.name]
-
-  default_capacity_provider_strategy {
-    capacity_provider = aws_ecs_capacity_provider.ec2_cp.name
-    weight            = 1
-  }
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 # ------------------ Task Definition ------------------
 resource "aws_ecs_task_definition" "app" {
-  family                   = "cloud-infra-ec2-task"
-  network_mode             = "bridge"
-  requires_compatibilities = ["EC2"]
+  family                   = "cloud-infra-ecs-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
 
   container_definitions = jsonencode([
     {
       name      = "app",
-      image     = "897729142473.dkr.ecr.eu-north-1.amazonaws.com/cloud-infra-ec2-rep:latest",
+      image     = "${var.ecr_image_url}:latest",
       cpu       = 256,
       memory    = 512,
       essential = true,
       portMappings = [
         {
           containerPort = 80,
-          hostPort      = 80
+          hostPort      = 80,
+          protocol      = "tcp"
         }
       ]
     }
@@ -187,17 +116,23 @@ resource "aws_ecs_task_definition" "app" {
 
 # ------------------ ECS Service ------------------
 resource "aws_ecs_service" "app" {
-  name            = "cloud-infra-ec2-service"
+  name            = "cloud-infra-ecs-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.app.arn
   desired_count   = 1
-  launch_type     = "EC2"
+  launch_type     = "FARGATE"
 
-  deployment_minimum_healthy_percent = 50
-  deployment_maximum_percent         = 200
-
-  capacity_provider_strategy {
-    capacity_provider = aws_ecs_capacity_provider.ec2_cp.name
-    weight            = 1
+  network_configuration {
+    subnets         = [aws_subnet.public_a.id]
+    security_groups = [aws_security_group.ecs_sg.id]
+    assign_public_ip = true
   }
+
+  depends_on = [aws_iam_role_policy_attachment.ecs_task_execution_role_policy]
+}
+
+# ------------------ Variables ------------------
+variable "ecr_image_url" {
+  description = "ECR repository image URL"
+  type        = string
 }

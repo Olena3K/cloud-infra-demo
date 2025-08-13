@@ -1,4 +1,4 @@
-name: Build, Push to ECR, Deploy to ECS-EC2
+name: Build, Push to ECR, Deploy to ECS Fargate
 
 on:
   push:
@@ -7,9 +7,9 @@ on:
 
 env:
   AWS_REGION: eu-north-1
-  ECR_REPOSITORY: cloud-infra-demo
-  ECS_CLUSTER: cloud-infra-ec2-cluster
-  ECS_SERVICE: cloud-infra-ec2-service
+  ECR_REPOSITORY: cloud-infra-ecs
+  ECS_CLUSTER: cloud-infra-ecs-cluster
+  ECS_SERVICE: cloud-infra-ecs-service
   CONTAINER_NAME: app
 
 permissions:
@@ -18,7 +18,6 @@ permissions:
 
 jobs:
   deploy:
-    name: Build & Deploy to ECS EC2
     runs-on: ubuntu-latest
 
     steps:
@@ -41,10 +40,9 @@ jobs:
           docker tag $ECR_REPOSITORY:latest ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest
 
       - name: Push Docker image to Amazon ECR
-        run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:latest
 
-      - name: Force new ECS EC2 deployment
+      - name: Update ECS Fargate service
         run: |
           aws ecs update-service \
             --cluster $ECS_CLUSTER \
