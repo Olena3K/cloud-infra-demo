@@ -5,8 +5,6 @@ This project demonstrates a simple Flask web application integrated with Postgre
 Overview
 The Flask app serves a simple page and a /health endpoint. The app is containerized, stored in AWS ECR, and deployed to ECS in the eu-north-1 region using Terraform. GitHub Actions automates the build and deployment pipeline, with monitoring via AWS CloudWatch.
 
----
-
 ## 📂 Structure
 
 cloud-infra-demo/
