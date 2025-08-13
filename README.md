@@ -83,4 +83,4 @@ Cloud Deployment
    terraform init
 3. Deploy infrastructure:
    terraform apply
-4. Access the app at the ECS service URL
+4. Access the app at the ECS service URL.
