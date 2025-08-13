@@ -16,7 +16,7 @@ resource "aws_internet_gateway" "app_igw" {
   }
 }
 
-resource "aws_subnet" "public_a" {
+resource "aws_subnet" "public_b" {
   vpc_id            = aws_vpc.app_vpc.id
   cidr_block        = "10.0.1.0/24"
   availability_zone = "eu-north-1a"
@@ -24,11 +24,11 @@ resource "aws_subnet" "public_a" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "cloud-infra-demo-public-a"
+    Name = "cloud-infra-demo-public-b"
   }
 }
 
-resource "aws_subnet" "public_b" {
+resource "aws_subnet" "public_c" {
   vpc_id            = aws_vpc.app_vpc.id
   cidr_block        = "10.0.2.0/24"
   availability_zone = "eu-north-1b"
@@ -36,7 +36,7 @@ resource "aws_subnet" "public_b" {
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "cloud-infra-demo-public-b"
+    Name = "cloud-infra-demo-public-c"
   }
 }
 
@@ -51,11 +51,6 @@ resource "aws_route_table" "public_rt" {
   tags = {
     Name = "cloud-infra-demo-public-rt"
   }
-}
-
-resource "aws_route_table_association" "public_a_assoc" {
-  subnet_id      = aws_subnet.public_a.id
-  route_table_id = aws_route_table.public_rt.id
 }
 
 resource "aws_route_table_association" "public_b_assoc" {
